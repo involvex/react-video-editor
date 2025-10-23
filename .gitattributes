@@ -1,2 +1,8 @@
 *msvc.node filter=lfs diff=lfs merge=lfs -text
 next-swc.win32-x64-msvc.node filter=lfs diff=lfs merge=lfs -text
+/node_modules filter=lfs diff=lfs merge=lfs -text
+node_modules/ filter=lfs diff=lfs merge=lfs -text
+app.asar.unpacked filter=lfs diff=lfs merge=lfs -text
+app.asar filter=lfs diff=lfs merge=lfs -text
+dist-electron/win-unpacked/resources/app.asar.unpacked/node_modules/@next/swc-win32-x64-msvc/next-swc.win32-x64-msvc.node filter=lfs diff=lfs merge=lfs -text
+dist-electron/win-unpacked/resources/app.asar filter=lfs diff=lfs merge=lfs -text
