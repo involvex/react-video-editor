@@ -1,0 +1,8 @@
+onlyBuiltDependencies:
+  - '@biomejs/biome'
+  - '@tailwindcss/oxide'
+  - canvas
+  - electron
+  - esbuild
+  - sharp
+  - unrs-resolver

@@ -1,16 +1,16 @@
 "use client";
-import { useEffect } from "react";
 import type { Upload } from "@/lib/types";
+import { useEffect } from "react";
 
 interface InitialData {
-  uploads?: Upload[];
+	uploads?: Upload[];
 }
 
 export function StoreInitializer() {
-  // No-op, removed user store logic
-  return null;
+	// No-op, removed user store logic
+	return null;
 }
 
 export function BackgroundUploadRunner() {
-  return null;
+	return null;
 }
