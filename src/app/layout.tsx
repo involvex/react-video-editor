@@ -6,7 +6,7 @@ import {
 import { Toaster } from "@/components/ui/sonner";
 import { baseUrl, createMetadata } from "@/utils/metadata";
 import { safeLocalStorage } from "@/utils/storage";
-import { Analytics } from "@vercel/analytics/react";
+
 import { Geist, Geist_Mono } from "next/font/google";
 import { Outfit } from "next/font/google";
 
@@ -81,7 +81,7 @@ export default async function RootLayout({
 					<BackgroundUploadRunner />
 					<Toaster />
 				</QueryProvider>
-				<Analytics />
+
 			</body>
 		</html>
 	);

@@ -1,9 +1,11 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("node:path");
-const isDev = require("electron-is-dev");
-const express = require("express");
+const fs = require("node:fs");
+const http = require("node:http");
 
-const isDevelopment = process.env.NODE_ENV === "development" || isDev;
+const isDevelopment =
+	process.env.NODE_ENV === "development" ||
+	process.env.ELECTRON_IS_DEV === "true";
 
 let server = null;
 
@@ -12,15 +14,113 @@ function startServer() {
 		return; // Don't start server in development
 	}
 
-	const staticPath = path.join(__dirname, "../out");
-	server = express();
+	const staticPath = path.join(__dirname, "../../out");
 
-	// Serve all files from the out directory
-	server.use(express.static(staticPath));
+	// Create a simple HTTP server to serve static files
+	server = http.createServer((req, res) => {
+		// Normalize the URL path
+		const urlPath = req.url;
 
-	// Handle client-side routing - serve index.html for all routes
-	server.get("*", (req, res) => {
-		res.sendFile(path.join(staticPath, "index.html"));
+		// Handle root route explicitly
+		if (urlPath === "/") {
+			// Serve index.html for root route
+			const indexPath = path.join(staticPath, "index.html");
+			fs.readFile(indexPath, (err, data) => {
+				if (err) {
+					console.error("Error reading index.html:", err);
+					res.writeHead(404);
+					res.end("Index file not found");
+				} else {
+					res.writeHead(200, {
+						"Content-Type": "text/html",
+						"Cache-Control": "no-cache",
+					});
+					res.end(data);
+				}
+			});
+			return;
+		}
+
+		// Check if it's a static file request (has extension or is in _next directory)
+		const isStaticFile = urlPath.includes(".") || urlPath.startsWith("/_next/");
+
+		if (isStaticFile) {
+			// Try to serve the static file
+			const filePath = path.join(staticPath, urlPath);
+			fs.readFile(filePath, (err, data) => {
+				if (err) {
+					console.error("Error reading static file:", filePath, err);
+					res.writeHead(404);
+					res.end("File not found");
+				} else {
+					// Set appropriate content type based on file extension
+					const ext = path.extname(filePath);
+					let contentType = "text/plain";
+
+					switch (ext) {
+						case ".html":
+							contentType = "text/html";
+							break;
+						case ".css":
+							contentType = "text/css";
+							break;
+						case ".js":
+							contentType = "text/javascript";
+							break;
+						case ".json":
+							contentType = "application/json";
+							break;
+						case ".png":
+							contentType = "image/png";
+							break;
+						case ".jpg":
+						case ".jpeg":
+							contentType = "image/jpeg";
+							break;
+						case ".svg":
+							contentType = "image/svg+xml";
+							break;
+						case ".ico":
+							contentType = "image/x-icon";
+							break;
+						case ".woff":
+							contentType = "font/woff";
+							break;
+						case ".woff2":
+							contentType = "font/woff2";
+							break;
+						case ".ttf":
+							contentType = "font/ttf";
+							break;
+						case ".eot":
+							contentType = "application/vnd.ms-fontobject";
+							break;
+					}
+
+					res.writeHead(200, {
+						"Content-Type": contentType,
+						"Cache-Control": "public, max-age=31536000",
+					});
+					res.end(data);
+				}
+			});
+		} else {
+			// Handle client-side routing - serve index.html for SPA routes
+			const indexPath = path.join(staticPath, "index.html");
+			fs.readFile(indexPath, (err, data) => {
+				if (err) {
+					console.error("Error reading index.html for SPA route:", err);
+					res.writeHead(404);
+					res.end("Index file not found");
+				} else {
+					res.writeHead(200, {
+						"Content-Type": "text/html",
+						"Cache-Control": "no-cache",
+					});
+					res.end(data);
+				}
+			});
+		}
 	});
 
 	server.listen(0, () => {

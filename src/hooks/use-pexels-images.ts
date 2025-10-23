@@ -81,59 +81,139 @@ export function usePexelsImages(): UsePexelsImagesReturn {
 	const [hasNextPage, setHasNextPage] = useState(false);
 	const [hasPrevPage, setHasPrevPage] = useState(false);
 
-	const fetchImages = useCallback(async (url: string) => {
-		setLoading(true);
-		setError(null);
+	const fetchImagesWithAuth = useCallback(
+		async (url: string, apiKey: string) => {
+			setLoading(true);
+			setError(null);
 
-		try {
-			const response = await fetch(url);
+			try {
+				const response = await fetch(url, {
+					headers: {
+						Authorization: apiKey,
+					},
+				});
 
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
+				if (!response.ok) {
+					throw new Error(`HTTP error! status: ${response.status}`);
+				}
+
+				const data = await response.json();
+
+				// Transform the data to match the expected format
+				const transformedPhotos = data.photos.map((photo: any) => ({
+					id: `pexels_${photo.id}`,
+					details: {
+						src: photo.src.large2x, // Use large2x for better quality
+						width: photo.width,
+						height: photo.height,
+						photographer: photo.photographer,
+						photographer_url: photo.photographer_url,
+						alt: photo.alt,
+					},
+					preview: photo.src.medium, // Use medium for preview
+					type: "image" as const,
+					metadata: {
+						pexels_id: photo.id,
+						avg_color: photo.avg_color,
+						original_url: photo.src.original,
+					},
+				}));
+
+				const transformedData: PexelsResponse = {
+					photos: transformedPhotos,
+					total_results: data.total_results || 0,
+					page: data.page,
+					per_page: data.per_page,
+					next_page: data.next_page,
+					prev_page: data.prev_page,
+				};
+
+				setImages(transformedData.photos);
+				setTotalResults(transformedData.total_results);
+				setCurrentPage(transformedData.page);
+				setHasNextPage(!!transformedData.next_page);
+				setHasPrevPage(!!transformedData.prev_page);
+			} catch (err) {
+				setError(err instanceof Error ? err.message : "Failed to fetch images");
+				setImages([]);
+			} finally {
+				setLoading(false);
 			}
-
-			const data: PexelsResponse = await response.json();
-
-			setImages(data.photos);
-			setTotalResults(data.total_results);
-			setCurrentPage(data.page);
-			setHasNextPage(!!data.next_page);
-			setHasPrevPage(!!data.prev_page);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to fetch images");
-			setImages([]);
-		} finally {
-			setLoading(false);
-		}
-	}, []);
+		},
+		[],
+	);
 
 	const searchImages = useCallback(
 		async (query: string, page = 1) => {
-			const url = `/api/pexels?query=${encodeURIComponent(query)}&page=${page}&per_page=20`;
-			await fetchImages(url);
+			const apiKey = process.env.PEXELS_API_KEY;
+			if (!apiKey) {
+				setError("Pexels API key not configured");
+				return;
+			}
+			const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&page=${page}&per_page=20`;
+			await fetchImagesWithAuth(url, apiKey);
 		},
-		[fetchImages],
+		[fetchImagesWithAuth],
 	);
 
 	const searchImagesAppend = useCallback(async (query: string, page = 1) => {
+		const apiKey = process.env.PEXELS_API_KEY;
+		if (!apiKey) {
+			setError("Pexels API key not configured");
+			return;
+		}
+
 		setLoading(true);
 		setError(null);
 
 		try {
-			const url = `/api/pexels?query=${encodeURIComponent(query)}&page=${page}&per_page=20`;
-			const response = await fetch(url);
+			const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&page=${page}&per_page=20`;
+			const response = await fetch(url, {
+				headers: {
+					Authorization: apiKey,
+				},
+			});
 
 			if (!response.ok) {
 				throw new Error(`HTTP error! status: ${response.status}`);
 			}
 
-			const data: PexelsResponse = await response.json();
+			const data = await response.json();
 
-			setImages((prevImages) => [...prevImages, ...data.photos]);
-			setTotalResults(data.total_results);
-			setCurrentPage(data.page);
-			setHasNextPage(!!data.next_page);
-			setHasPrevPage(!!data.prev_page);
+			// Transform the data to match the expected format
+			const transformedPhotos = data.photos.map((photo: any) => ({
+				id: `pexels_${photo.id}`,
+				details: {
+					src: photo.src.large2x, // Use large2x for better quality
+					width: photo.width,
+					height: photo.height,
+					photographer: photo.photographer,
+					photographer_url: photo.photographer_url,
+					alt: photo.alt,
+				},
+				preview: photo.src.medium, // Use medium for preview
+				type: "image" as const,
+				metadata: {
+					pexels_id: photo.id,
+					avg_color: photo.avg_color,
+					original_url: photo.src.original,
+				},
+			}));
+
+			const transformedData: PexelsResponse = {
+				photos: transformedPhotos,
+				total_results: data.total_results || 0,
+				page: data.page,
+				per_page: data.per_page,
+				next_page: data.next_page,
+				prev_page: data.prev_page,
+			};
+
+			setImages((prevImages) => [...prevImages, ...transformedData.photos]);
+			setTotalResults(transformedData.total_results);
+			setCurrentPage(transformedData.page);
+			setHasNextPage(!!transformedData.next_page);
+			setHasPrevPage(!!transformedData.prev_page);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to fetch images");
 		} finally {
@@ -162,29 +242,68 @@ export function usePexelsImages(): UsePexelsImagesReturn {
 		}
 
 		// Fetch fresh data
-		const url = `/api/pexels?page=${page}&per_page=20`;
+		const apiKey = process.env.PEXELS_API_KEY;
+		if (!apiKey) {
+			setError("Pexels API key not configured");
+			return;
+		}
+
+		const url = `https://api.pexels.com/v1/curated?page=${page}&per_page=20`;
 		setLoading(true);
 		setError(null);
 
 		try {
-			const response = await fetch(url);
+			const response = await fetch(url, {
+				headers: {
+					Authorization: apiKey,
+				},
+			});
 
 			if (!response.ok) {
 				throw new Error(`HTTP error! status: ${response.status}`);
 			}
 
-			const data: PexelsResponse = await response.json();
+			const data = await response.json();
+
+			// Transform the data to match the expected format
+			const transformedPhotos = data.photos.map((photo: any) => ({
+				id: `pexels_${photo.id}`,
+				details: {
+					src: photo.src.large2x, // Use large2x for better quality
+					width: photo.width,
+					height: photo.height,
+					photographer: photo.photographer,
+					photographer_url: photo.photographer_url,
+					alt: photo.alt,
+				},
+				preview: photo.src.medium, // Use medium for preview
+				type: "image" as const,
+				metadata: {
+					pexels_id: photo.id,
+					avg_color: photo.avg_color,
+					original_url: photo.src.original,
+				},
+			}));
+
+			const transformedData: PexelsResponse = {
+				photos: transformedPhotos,
+				total_results: data.total_results || 0,
+				page: data.page,
+				per_page: data.per_page,
+				next_page: data.next_page,
+				prev_page: data.prev_page,
+			};
 
 			// Cache the data
-			curatedImagesCache.data = data;
+			curatedImagesCache.data = transformedData;
 			curatedImagesCache.timestamp = now;
 			curatedImagesCache.page = page;
 
-			setImages(data.photos);
-			setTotalResults(data.total_results);
-			setCurrentPage(data.page);
-			setHasNextPage(!!data.next_page);
-			setHasPrevPage(!!data.prev_page);
+			setImages(transformedData.photos);
+			setTotalResults(transformedData.total_results);
+			setCurrentPage(transformedData.page);
+			setHasNextPage(!!transformedData.next_page);
+			setHasPrevPage(!!transformedData.prev_page);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to fetch images");
 			setImages([]);
@@ -194,24 +313,63 @@ export function usePexelsImages(): UsePexelsImagesReturn {
 	}, []);
 
 	const loadCuratedImagesAppend = useCallback(async (page = 1) => {
+		const apiKey = process.env.PEXELS_API_KEY;
+		if (!apiKey) {
+			setError("Pexels API key not configured");
+			return;
+		}
+
 		setLoading(true);
 		setError(null);
 
 		try {
-			const url = `/api/pexels?page=${page}&per_page=20`;
-			const response = await fetch(url);
+			const url = `https://api.pexels.com/v1/curated?page=${page}&per_page=20`;
+			const response = await fetch(url, {
+				headers: {
+					Authorization: apiKey,
+				},
+			});
 
 			if (!response.ok) {
 				throw new Error(`HTTP error! status: ${response.status}`);
 			}
 
-			const data: PexelsResponse = await response.json();
+			const data = await response.json();
 
-			setImages((prevImages) => [...prevImages, ...data.photos]);
-			setTotalResults(data.total_results);
-			setCurrentPage(data.page);
-			setHasNextPage(!!data.next_page);
-			setHasPrevPage(!!data.prev_page);
+			// Transform the data to match the expected format
+			const transformedPhotos = data.photos.map((photo: any) => ({
+				id: `pexels_${photo.id}`,
+				details: {
+					src: photo.src.large2x, // Use large2x for better quality
+					width: photo.width,
+					height: photo.height,
+					photographer: photo.photographer,
+					photographer_url: photo.photographer_url,
+					alt: photo.alt,
+				},
+				preview: photo.src.medium, // Use medium for preview
+				type: "image" as const,
+				metadata: {
+					pexels_id: photo.id,
+					avg_color: photo.avg_color,
+					original_url: photo.src.original,
+				},
+			}));
+
+			const transformedData: PexelsResponse = {
+				photos: transformedPhotos,
+				total_results: data.total_results || 0,
+				page: data.page,
+				per_page: data.per_page,
+				next_page: data.next_page,
+				prev_page: data.prev_page,
+			};
+
+			setImages((prevImages) => [...prevImages, ...transformedData.photos]);
+			setTotalResults(transformedData.total_results);
+			setCurrentPage(transformedData.page);
+			setHasNextPage(!!transformedData.next_page);
+			setHasPrevPage(!!transformedData.prev_page);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to fetch images");
 		} finally {

@@ -98,59 +98,159 @@ export function usePexelsVideos(): UsePexelsVideosReturn {
 	const [hasNextPage, setHasNextPage] = useState(false);
 	const [hasPrevPage, setHasPrevPage] = useState(false);
 
-	const fetchVideos = useCallback(async (url: string) => {
-		setLoading(true);
-		setError(null);
+	const fetchVideosWithAuth = useCallback(
+		async (url: string, apiKey: string) => {
+			setLoading(true);
+			setError(null);
 
-		try {
-			const response = await fetch(url);
+			try {
+				const response = await fetch(url, {
+					headers: {
+						Authorization: apiKey,
+					},
+				});
 
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
+				if (!response.ok) {
+					throw new Error(`HTTP error! status: ${response.status}`);
+				}
+
+				const data = await response.json();
+
+				// Transform the data to match the expected format
+				const transformedVideos = data.videos.map((video: any) => {
+					// Find the best quality video file (prefer HD or SD)
+					const videoFile =
+						video.video_files.find(
+							(file: any) => file.quality === "hd" || file.quality === "sd",
+						) || video.video_files[0];
+
+					// Get the first video picture as preview
+					const previewPicture =
+						video.video_pictures[0]?.picture || video.image;
+
+					return {
+						id: `pexels_video_${video.id}`,
+						details: {
+							src: videoFile?.link || "",
+							width: video.width,
+							height: video.height,
+							duration: video.duration,
+							fps: videoFile?.fps || 30,
+						},
+						preview: previewPicture,
+						type: "video" as const,
+						metadata: {
+							pexels_id: video.id,
+							user: video.user,
+							video_files: video.video_files,
+							video_pictures: video.video_pictures,
+						},
+					};
+				});
+
+				const transformedData: PexelsVideoResponse = {
+					videos: transformedVideos,
+					total_results: data.total_results || 0,
+					page: data.page,
+					per_page: data.per_page,
+					next_page: data.next_page,
+					prev_page: data.prev_page,
+				};
+
+				setVideos(transformedData.videos);
+				setTotalResults(transformedData.total_results);
+				setCurrentPage(transformedData.page);
+				setHasNextPage(!!transformedData.next_page);
+				setHasPrevPage(!!transformedData.prev_page);
+			} catch (err) {
+				setError(err instanceof Error ? err.message : "Failed to fetch videos");
+				setVideos([]);
+			} finally {
+				setLoading(false);
 			}
-
-			const data: PexelsVideoResponse = await response.json();
-
-			setVideos(data.videos);
-			setTotalResults(data.total_results);
-			setCurrentPage(data.page);
-			setHasNextPage(!!data.next_page);
-			setHasPrevPage(!!data.prev_page);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to fetch videos");
-			setVideos([]);
-		} finally {
-			setLoading(false);
-		}
-	}, []);
-
-	const searchVideos = useCallback(
-		async (query: string, page = 1) => {
-			const url = `/api/pexels-videos?query=${encodeURIComponent(query)}&page=${page}&per_page=15`;
-			await fetchVideos(url);
 		},
-		[fetchVideos],
+		[],
 	);
 
+	const searchVideos = useCallback(async (query: string, page = 1) => {
+		const apiKey = process.env.PEXELS_API_KEY;
+		if (!apiKey) {
+			setError("Pexels API key not configured");
+			return;
+		}
+		const url = `https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&page=${page}&per_page=15`;
+		await fetchVideosWithAuth(url, apiKey);
+	}, []);
+
 	const searchVideosAppend = useCallback(async (query: string, page = 1) => {
+		const apiKey = process.env.PEXELS_API_KEY;
+		if (!apiKey) {
+			setError("Pexels API key not configured");
+			return;
+		}
+
 		setLoading(true);
 		setError(null);
 
 		try {
-			const url = `/api/pexels-videos?query=${encodeURIComponent(query)}&page=${page}&per_page=15`;
-			const response = await fetch(url);
+			const url = `https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&page=${page}&per_page=15`;
+			const response = await fetch(url, {
+				headers: {
+					Authorization: apiKey,
+				},
+			});
 
 			if (!response.ok) {
 				throw new Error(`HTTP error! status: ${response.status}`);
 			}
 
-			const data: PexelsVideoResponse = await response.json();
+			const data = await response.json();
 
-			setVideos((prevVideos) => [...prevVideos, ...data.videos]);
-			setTotalResults(data.total_results);
-			setCurrentPage(data.page);
-			setHasNextPage(!!data.next_page);
-			setHasPrevPage(!!data.prev_page);
+			// Transform the data to match the expected format
+			const transformedVideos = data.videos.map((video: any) => {
+				// Find the best quality video file (prefer HD or SD)
+				const videoFile =
+					video.video_files.find(
+						(file: any) => file.quality === "hd" || file.quality === "sd",
+					) || video.video_files[0];
+
+				// Get the first video picture as preview
+				const previewPicture = video.video_pictures[0]?.picture || video.image;
+
+				return {
+					id: `pexels_video_${video.id}`,
+					details: {
+						src: videoFile?.link || "",
+						width: video.width,
+						height: video.height,
+						duration: video.duration,
+						fps: videoFile?.fps || 30,
+					},
+					preview: previewPicture,
+					type: "video" as const,
+					metadata: {
+						pexels_id: video.id,
+						user: video.user,
+						video_files: video.video_files,
+						video_pictures: video.video_pictures,
+					},
+				};
+			});
+
+			const transformedData: PexelsVideoResponse = {
+				videos: transformedVideos,
+				total_results: data.total_results || 0,
+				page: data.page,
+				per_page: data.per_page,
+				next_page: data.next_page,
+				prev_page: data.prev_page,
+			};
+
+			setVideos((prevVideos) => [...prevVideos, ...transformedData.videos]);
+			setTotalResults(transformedData.total_results);
+			setCurrentPage(transformedData.page);
+			setHasNextPage(!!transformedData.next_page);
+			setHasPrevPage(!!transformedData.prev_page);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to fetch videos");
 		} finally {
@@ -179,29 +279,79 @@ export function usePexelsVideos(): UsePexelsVideosReturn {
 		}
 
 		// Fetch fresh data
-		const url = `/api/pexels-videos?page=${page}&per_page=15`;
+		const apiKey = process.env.PEXELS_API_KEY;
+		if (!apiKey) {
+			setError("Pexels API key not configured");
+			return;
+		}
+
+		const url = `https://api.pexels.com/videos/popular?page=${page}&per_page=15`;
 		setLoading(true);
 		setError(null);
 
 		try {
-			const response = await fetch(url);
+			const response = await fetch(url, {
+				headers: {
+					Authorization: apiKey,
+				},
+			});
 
 			if (!response.ok) {
 				throw new Error(`HTTP error! status: ${response.status}`);
 			}
 
-			const data: PexelsVideoResponse = await response.json();
+			const data = await response.json();
+
+			// Transform the data to match the expected format
+			const transformedVideos = data.videos.map((video: any) => {
+				// Find the best quality video file (prefer HD or SD)
+				const videoFile =
+					video.video_files.find(
+						(file: any) => file.quality === "hd" || file.quality === "sd",
+					) || video.video_files[0];
+
+				// Get the first video picture as preview
+				const previewPicture = video.video_pictures[0]?.picture || video.image;
+
+				return {
+					id: `pexels_video_${video.id}`,
+					details: {
+						src: videoFile?.link || "",
+						width: video.width,
+						height: video.height,
+						duration: video.duration,
+						fps: videoFile?.fps || 30,
+					},
+					preview: previewPicture,
+					type: "video" as const,
+					metadata: {
+						pexels_id: video.id,
+						user: video.user,
+						video_files: video.video_files,
+						video_pictures: video.video_pictures,
+					},
+				};
+			});
+
+			const transformedData: PexelsVideoResponse = {
+				videos: transformedVideos,
+				total_results: data.total_results || 0,
+				page: data.page,
+				per_page: data.per_page,
+				next_page: data.next_page,
+				prev_page: data.prev_page,
+			};
 
 			// Cache the data
-			popularVideosCache.data = data;
+			popularVideosCache.data = transformedData;
 			popularVideosCache.timestamp = now;
 			popularVideosCache.page = page;
 
-			setVideos(data.videos);
-			setTotalResults(data.total_results);
-			setCurrentPage(data.page);
-			setHasNextPage(!!data.next_page);
-			setHasPrevPage(!!data.prev_page);
+			setVideos(transformedData.videos);
+			setTotalResults(transformedData.total_results);
+			setCurrentPage(transformedData.page);
+			setHasNextPage(!!transformedData.next_page);
+			setHasPrevPage(!!transformedData.prev_page);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to fetch videos");
 			setVideos([]);
@@ -211,24 +361,74 @@ export function usePexelsVideos(): UsePexelsVideosReturn {
 	}, []);
 
 	const loadPopularVideosAppend = useCallback(async (page = 1) => {
+		const apiKey = process.env.PEXELS_API_KEY;
+		if (!apiKey) {
+			setError("Pexels API key not configured");
+			return;
+		}
+
 		setLoading(true);
 		setError(null);
 
 		try {
-			const url = `/api/pexels-videos?page=${page}&per_page=15`;
-			const response = await fetch(url);
+			const url = `https://api.pexels.com/videos/popular?page=${page}&per_page=15`;
+			const response = await fetch(url, {
+				headers: {
+					Authorization: apiKey,
+				},
+			});
 
 			if (!response.ok) {
 				throw new Error(`HTTP error! status: ${response.status}`);
 			}
 
-			const data: PexelsVideoResponse = await response.json();
+			const data = await response.json();
 
-			setVideos((prevVideos) => [...prevVideos, ...data.videos]);
-			setTotalResults(data.total_results);
-			setCurrentPage(data.page);
-			setHasNextPage(!!data.next_page);
-			setHasPrevPage(!!data.prev_page);
+			// Transform the data to match the expected format
+			const transformedVideos = data.videos.map((video: any) => {
+				// Find the best quality video file (prefer HD or SD)
+				const videoFile =
+					video.video_files.find(
+						(file: any) => file.quality === "hd" || file.quality === "sd",
+					) || video.video_files[0];
+
+				// Get the first video picture as preview
+				const previewPicture = video.video_pictures[0]?.picture || video.image;
+
+				return {
+					id: `pexels_video_${video.id}`,
+					details: {
+						src: videoFile?.link || "",
+						width: video.width,
+						height: video.height,
+						duration: video.duration,
+						fps: videoFile?.fps || 30,
+					},
+					preview: previewPicture,
+					type: "video" as const,
+					metadata: {
+						pexels_id: video.id,
+						user: video.user,
+						video_files: video.video_files,
+						video_pictures: video.video_pictures,
+					},
+				};
+			});
+
+			const transformedData: PexelsVideoResponse = {
+				videos: transformedVideos,
+				total_results: data.total_results || 0,
+				page: data.page,
+				per_page: data.per_page,
+				next_page: data.next_page,
+				prev_page: data.prev_page,
+			};
+
+			setVideos((prevVideos) => [...prevVideos, ...transformedData.videos]);
+			setTotalResults(transformedData.total_results);
+			setCurrentPage(transformedData.page);
+			setHasNextPage(!!transformedData.next_page);
+			setHasPrevPage(!!transformedData.prev_page);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to fetch videos");
 		} finally {

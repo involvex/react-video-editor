@@ -22,11 +22,11 @@ export async function processFileUpload(
 	callbacks: UploadCallbacks,
 ): Promise<any> {
 	try {
-		// Get presigned URL
+		// Get presigned URL directly from external service
 		const {
 			data: { uploads },
 		} = await axios.post(
-			"/api/uploads/presign",
+			"https://upload-file-j43uyuaeza-uc.a.run.app/presigned",
 			{
 				userId: "PJ1nkaufw0hZPyhN7bWCP",
 				fileNames: [file.name],
@@ -82,11 +82,11 @@ export async function processUrlUpload(
 		// Start with 10% progress
 		callbacks.onProgress(uploadId, 10);
 
-		// Upload URL
+		// Upload URL directly from external service
 		const {
 			data: { uploads = [] } = {},
 		} = await axios.post(
-			"/api/uploads/url",
+			"https://upload-file-j43uyuaeza-uc.a.run.app/url",
 			{
 				userId: "PJ1nkaufw0hZPyhN7bWCP",
 				urls: [url],

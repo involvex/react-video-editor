@@ -142,30 +142,43 @@ export const AiVoice = () => {
 		};
 	}, [audioElement]);
 
-	// Fetch voices from API
+	// Fetch voices from external API directly
 	const fetchVoices = async (queryParams?: any) => {
 		setLoading(true);
 		try {
-			const response = await fetch("/api/voices", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
+			// Try the API call with better error handling
+			const response = await fetch(
+				"https://dubbing-152153811339.us-central1.run.app/search-voices",
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({
+						limit: 20,
+						page: 1,
+						query: queryParams || {},
+					}),
 				},
-				body: JSON.stringify({
-					limit: 20,
-					page: 1,
-					query: queryParams || {},
-				}),
-			});
+			);
 
 			if (response.ok) {
 				const data = await response.json();
+				console.log("Voices API response:", data);
 				setVoices(data.voices || []);
 			} else {
-				console.error("Failed to fetch voices");
+				console.error(
+					"Failed to fetch voices:",
+					response.status,
+					response.statusText,
+				);
+				// Set empty voices array on error
+				setVoices([]);
 			}
 		} catch (error) {
 			console.error("Error fetching voices:", error);
+			// Set empty voices array on error
+			setVoices([]);
 		} finally {
 			setLoading(false);
 		}
@@ -192,47 +205,31 @@ export const AiVoice = () => {
 		setIsGenerating(true);
 
 		try {
-			// Call the TTS API
-			const response = await fetch("/api/generate-voice", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					text: text.trim(),
-					voiceId: selectedVoice.id,
-					folder: "ai-voice-generations", // Optional folder for organization
-				}),
-			});
+			// TODO: Implement voice generation API call
+			// For now, show a message that this feature is not yet implemented
+			toast.info("Voice generation feature is coming soon!");
 
-			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.error || `HTTP ${response.status}`);
-			}
+			// Placeholder for future implementation:
+			// const response = await fetch("https://external-tts-api.com/generate", {
+			//   method: "POST",
+			//   headers: {
+			//     "Content-Type": "application/json",
+			//   },
+			//   body: JSON.stringify({
+			//     text: text.trim(),
+			//     voiceId: selectedVoice.id,
+			//   }),
+			// });
 
-			const data = await response.json();
+			// if (!response.ok) {
+			//   throw new Error(`HTTP ${response.status}`);
+			// }
 
-			// Handle successful generation
-			// You can add logic here to handle the generated audio
-			// For example, add it to the timeline, play it, etc.
-			if (data.agent?.url) {
-				console.log("Generated audio URL:", data.agent.url);
-				console.log("Audio duration:", data.agent.duration);
-
-				toast.success("Voice generated successfully!");
-
-				// TODO: Add the generated audio to the editor timeline
-				// This would typically involve calling a store action or context function
-			} else {
-				toast.error("Voice generation completed but no audio URL received");
-			}
+			// const data = await response.json();
+			// Handle successful generation...
 		} catch (error) {
 			console.error("Error generating voice:", error);
-			toast.error(
-				error instanceof Error
-					? error.message
-					: "Failed to generate voice. Please try again.",
-			);
+			toast.error("Voice generation is not yet implemented.");
 		} finally {
 			setIsGenerating(false);
 		}
